@@ -1,16 +1,19 @@
 const express = require('express')
 const path = require('path')
 const mongoose = require('mongoose')
-const Campground = require('./models/campground')
 const methodOverride = require('method-override')
 const {password} = require('./creds.json')
-const catchAsync = require('./utils/catchAsync')
 const ExpressError = require('./utils/ExpressError')
 const ejsMate   = require('ejs-mate')
-const Joi = require('joi')
-const {campgroundSchema, commentSchema} = require('./schemas.js')
-const Comment = require('./models/comments.js')
-// console.log(password)
+const campgroundRoutes = require('./routes/campgrounds.js')
+const commentRoutes = require('./routes/comments.js')
+const userRoutes = require('./routes/users.js')
+const session = require('express-session')
+const flash = require('connect-flash');
+const passport = require('passport');
+const LocalStrategy = require('passport-local')
+const User = require('./models/user.js')
+
 
 mongoose.connect(`mongodb+srv://vivekmdp13:${password}@mongotest.ziirv.mongodb.net/yelp-camp`)
 
@@ -26,118 +29,46 @@ app.set('view engine','ejs')
 app.set('views',path.join(__dirname,'views'))
 app.use(express.urlencoded({extended:true}))
 app.use(methodOverride("_method"))
+const sessionConfig  = {
+    secret:'thishouldbeabettersecret',
+    resave:false,
+    saveUninitialized: true,
+    cookie:{
+        expires: Date.now() + 7 * 24 * 60 * 60 * 1000,
+        maxAge:  7 * 24 * 60 * 60 * 1000,
+        httpOnly:true
+    }
 
-const validateCampground = (req,res,next)=>{
+}
+app.use(session(sessionConfig));
+app.use(flash());
+app.use(passport.initialize());
+app.use(passport.session());
+passport.use(new LocalStrategy(User.authenticate()));
+passport.serializeUser(User.serializeUser());
+passport.deserializeUser(User.deserializeUser());
 
-    console.log("Inside middleware")
-    const {error} = campgroundSchema.validate(req.body);
-    if(error){
-        const msg = error.details.map(el=>el.message).join(',')
-        console.log("Error message is",msg)
-        throw new ExpressError(msg,400);
-    }
-    else{
-        next();
-    }
-}
-const validateComment = (req,res,next)=>{
-    const {error} = commentSchema.validate(req.body);
-    if(error){
-        const msg = error.details.map(el=>el.message).join(',')
-        throw new ExpressError(msg,400)
-    }
-    else{
-        next();
-    }
-}
+app.use((req,res,next)=>{
+    res.locals.currentUser = req.user;
+    res.locals.success = req.flash('success');
+    res.locals.error = req.flash('error')
+    next();
+})
+
+
+app.use('/',userRoutes);
+
+app.use('/campgrounds',campgroundRoutes);
+app.use('/campgrounds/:id/comments',commentRoutes);
+
+app.use(express.static(path.join(__dirname, 'public')))
+
 app.get('/',(req,res)=>{
 
     res.render('home')
 })
 
-app.get('/newcampground',async (req,res)=>{
 
-    const campground = new Campground({
-        title:"Masoori",
-        price:1000,
-        description:"In India",
-        location:"India"
-    })
-
-    await campground.save()
-    res.send("New campground made")
-})
-
-app.get('/campgrounds',catchAsync(async (req,res)=>{
-
-    // res.send("Campground Index")
-    const campgrounds = await Campground.find({})
-
-    res.render('campgrounds/index.ejs',{campgrounds})
-}))
-app.get('/campgrounds/new',(req,res)=>{
-
-    res.render('campgrounds/new')
-})
-app.post('/campgrounds',validateCampground, catchAsync(async(req,res,next)=>{
-
-    const campground = new Campground(req.body.campground)
-    console.log(campground)
-    await campground.save();
-    res.redirect(`/campgrounds/${campground._id}`)
-
-}))
-
-
-app.get('/campgrounds/:id',catchAsync(async(req,res)=>{
-
-    const campground = await Campground.findById(req.params.id).populate('comments');
-    // console.log(campground)
-    res.render('campgrounds/show',{campground})
-}))
-app.delete('/campgrounds/:id',catchAsync(async (req,res)=>{
-
-
-    await Campground.findByIdAndDelete(req.params.id)
-
-    res.redirect('/campgrounds')
-    
-}))
-
-app.post('/campgrounds/:id/comments',validateComment,catchAsync(async (req,res)=>{
-
-    const campground = await Campground.findById(req.params.id) 
-    const {body, rating} = req.body
-    const comment = new Comment(req.body.comment)
-    campground.comments.push(comment);
-    await comment.save();
-    await campground.save();
-    // res.send(req.body)
-    res.redirect(`/campgrounds/${campground._id}`)
-    
-}))
-
-app.get('/campgrounds/:id/edit',catchAsync(async (req,res)=>{
-
-    const campground  = await Campground.findById(req.params.id)
-    res.render('campgrounds/edit' , {campground})
-}))
-app.put('/campgrounds/:id',validateCampground,catchAsync(async (req,res)=>{
-
-
-    const campground  = await Campground.findByIdAndUpdate(req.params.id,{...req.body.campground},{new:true})
-    console.log(campground)
-    res.redirect(`/campgrounds/${req.params.id}`)
-}))
-
-app.delete('/campgrounds/:id/comments/:commentId',catchAsync(async(req,res)=>{
-
-    const {id, commentId} = req.params;
-    await Campground.findByIdAndUpdate(id, {$pull: {comments: commentId}})  // find comment with commentId from comments array of a particular campground and delete it using "pull"
-    await Comment.findByIdAndDelete(req.params.commentId);
-    res.redirect(`/campgrounds/${id}`)
-    // res.send("Deleted comment")
-}))
 app.all('*',(req,res,next)=>{
     next(new ExpressError('Page not found!!',404))
 })
