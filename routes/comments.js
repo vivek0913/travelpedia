@@ -4,25 +4,16 @@ const catchAsync = require('../utils/catchAsync')
 const Comment = require('../models/comments.js')
 const Campground = require('../models/campground')
 const ExpressError = require('../utils/ExpressError')
+const {validateComment, isLoggedIn, isCommentAuthor} = require('../middleware.js')
 
-const { commentSchema} = require('../schemas.js')
 
-const validateComment = (req,res,next)=>{
-    const {error} = commentSchema.validate(req.body);
-    if(error){
-        const msg = error.details.map(el=>el.message).join(',')
-        throw new ExpressError(msg,400)
-    }
-    else{
-        next();
-    }
-}
-
-router.post('/',validateComment,catchAsync(async (req,res)=>{
+router.post('/', isLoggedIn, validateComment,catchAsync(async (req,res)=>{
 
     const campground = await Campground.findById(req.params.id) 
     const {body, rating} = req.body
     const comment = new Comment(req.body.comment)
+    comment.author = req.user.id;
+    console.log(comment)
     campground.comments.push(comment);
     await comment.save();
     await campground.save();
@@ -33,7 +24,7 @@ router.post('/',validateComment,catchAsync(async (req,res)=>{
 }))
 
 
-router.delete('/:commentId',catchAsync(async(req,res)=>{
+router.delete('/:commentId',isCommentAuthor,catchAsync(async(req,res)=>{
 
     const {id, commentId} = req.params;
     await Campground.findByIdAndUpdate(id, {$pull: {comments: commentId}})  // find comment with commentId from comments array of a particular campground and delete it using "pull"
