@@ -14,6 +14,11 @@ const passport = require('passport');
 const LocalStrategy = require('passport-local')
 const User = require('./models/user.js')
 
+if(process.env.NODE_ENV != "production"){
+    require('dotenv').config();
+    console.log("Initialised dotenv config")
+}
+console.log(process.env.CLOUDINARY_CLOUD_NAME, process.env.CLOUDINARY_KEY, process.env.CLOUDINARY_SECRET )
 
 mongoose.connect(`mongodb+srv://vivekmdp13:${password}@mongotest.ziirv.mongodb.net/yelp-camp`)
 
