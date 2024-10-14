@@ -2,7 +2,8 @@ const express = require('express')
 const path = require('path')
 const mongoose = require('mongoose')
 const methodOverride = require('method-override')
-const {password} = require('./creds.json')
+// const {password} = require('./creds.json')
+// const password = process.env.MONGO_PASSWORD
 const ExpressError = require('./utils/ExpressError')
 const ejsMate   = require('ejs-mate')
 const campgroundRoutes = require('./routes/campgrounds.js')
@@ -13,11 +14,15 @@ const flash = require('connect-flash');
 const passport = require('passport');
 const LocalStrategy = require('passport-local')
 const User = require('./models/user.js')
+const { string } = require('joi')
 
 if(process.env.NODE_ENV != "production"){
     require('dotenv').config();
     console.log("Initialised dotenv config")
 }
+const password = process.env.MONGO_PASSWORD
+// console.log(process.env.MONGO_PASSWORD)
+console.log(password)
 console.log(process.env.CLOUDINARY_CLOUD_NAME, process.env.CLOUDINARY_KEY, process.env.CLOUDINARY_SECRET )
 
 mongoose.connect(`mongodb+srv://vivekmdp13:${password}@mongotest.ziirv.mongodb.net/yelp-camp`)

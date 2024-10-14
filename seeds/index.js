@@ -2,9 +2,10 @@ const mongoose = require('mongoose')
 const Campground = require('../models/campground')
 const cities = require('./cities')
 const {places, descriptors} = require('./seedHelpers')
-const {password} = require('../creds.json')
+// const {password} = require('../creds.json')
+const password = process.env.MONGO_PASSWORD
 
-// console.log(password)
+console.log("Mongo password = ",password)
 
 mongoose.connect(`mongodb+srv://vivekmdp13:${password}@mongotest.ziirv.mongodb.net/yelp-camp`)
 
